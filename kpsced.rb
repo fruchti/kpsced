@@ -4,11 +4,12 @@
 
 require 'optparse'
 require 'fileutils'
+require 'yaml'
 
 #  Default path to the Eeschema configuration file
 $eeschemaconfigpath = "#{Dir.home}/.config/kicad/eeschema"
 
-# The colors used by Eeschema
+# Thenewcolors used by Eeschema
 $colordefinitions = {
     'Black' => '0 0 0',
     'Gray 1' => '0.282 0.282 0.282',
@@ -41,12 +42,17 @@ $colordefinitions = {
     'Magenta 4' => '1 0 1',
     'Yellow 4' => '1 1 0'}
 
+# Checks and unifies color syntax
+def checkcolor(color)
+    if !(color =~ /^#?[0-9a-f]{6}$/i)
+        return nil
+    end
+    return color.gsub(/^#?([0-9a-fA-F]{6})$/i, '#\1').downcase()
+end
+
+
 # Converts a hexadecimal color (like #ffffff) into the notation used by postscript
 def hextops(color)
-    if !(color =~ /^[0-9a-f]{6}$/i)
-        puts color + ' is not a valid color'
-        exit 1
-    end
     r = "%0.3f" % (color.gsub(/^#?([0-9a-fA-F]{2})[0-9a-fA-F]{4}$/i, '\1').to_i(16) / 255.0)
     g = "%0.3f" % (color.gsub(/^#?[0-9a-fA-F]{2}([0-9a-fA-F]{2})[0-9a-f]{2}$/i, '\1').to_i(16) / 255.0)
     b = "%0.3f" % (color.gsub(/^#?[0-9a-fA-F]{4}([0-9a-fA-F]{2})$/i, '\1').to_i(16) / 255.0)
@@ -70,16 +76,15 @@ def parseeeschemaconfig(path)
     return config
 end
 
-# Looks for colors appearing more than one time
+# Looks fornewcolors appearing more than one time
 def showdoubles(config)
     # Group color settings by color
-    config['Schematic Title Color'] = 'Red 2'
     grouped = config.keys.group_by { |key| config[key] }
     grouped.reject! { |key, group| group.count < 2 }
     if grouped.count == 0
         puts 'No color is used more than one time. Every setting can be made independently.'
     else
-        puts 'The following colors are used repeatedly and cannot be changed independently:'
+        puts 'The followingnewcolors are used repeatedly and cannot be changed independently:'
         grouped.each do |group|
             puts '"' + group.shift + '" is used for:'
             group.flatten!
@@ -91,7 +96,7 @@ def showdoubles(config)
 end
 
 options = Hash.new()
-colors = Hash.new()
+newcolors = Hash.new()
 
 optparse = OptionParser.new do |opts|
     opts.banner = 'Usage: ' + File.basename(__FILE__) + ' [options] FILE'
@@ -101,113 +106,121 @@ optparse = OptionParser.new do |opts|
         options['OutputFile'] = file
     end
 
-    options['ConfigFile'] = $eeschemaconfigpath
+    options['EeschemaConfigFile'] = $eeschemaconfigpath
     opts.on('-k', '--config FILE', 'Use different Eeschema config file') do |file|
-        options['ConfigFile'] = file
+        options['EeschemaConfigFile'] = file
     end
 
-    opts.on('-j', '--showdoubles', 'Show colors which cannot be set independently') do
+    opts.on('-m', '--colorscheme FILE', 'Use a color scheme file') do |file|
+        options['ColorSchemeFile'] = file
+    end
+
+    opts.on('--generate FILE', 'Generate a color scheme file') do |file|
+        options['NewColorSchemeFile'] = file
+    end
+
+    opts.on('-j', '--showdoubles', 'Shownewcolors which cannot be set independently') do
         options['ShowDoubles'] = true
     end
 
     opts.on('-w', '--wirecolor COLOR', 'Set wire color') do |color|
-        colors['ColorWireEx'] = color
+        newcolors['ColorWireEx'] = color
     end
 
     opts.on('-b', '--buscolor COLOR', 'Set bus color') do |color|
-        colors['ColorBusEx'] = color
+        newcolors['ColorBusEx'] = color
     end
 
     opts.on('-c', '--conncolor COLOR', 'Set connection dot color') do |color|
-        colors['ColorConnEx'] = color
+        newcolors['ColorConnEx'] = color
     end
 
     opts.on('-l', '--llabelcolor COLOR', 'Set local label color') do |color|
-        colors['ColorLLabelEx'] = color
+        newcolors['ColorLLabelEx'] = color
     end
 
     opts.on('-h', '--hlabelcolor COLOR', 'Set hierarchical label color') do |color|
-        colors['ColorHLabelEx'] = color
+        newcolors['ColorHLabelEx'] = color
     end
 
     opts.on('-g', '--glabelcolor COLOR', 'Set global label color') do |color|
-        colors['ColorGLabelEx'] = color
+        newcolors['ColorGLabelEx'] = color
     end
 
     opts.on('-n', '--pinnumcolor COLOR', 'Set pin number color') do |color|
-        colors['ColorPinNumEx'] = color
+        newcolors['ColorPinNumEx'] = color
     end
 
     opts.on('-p', '--pinnamecolor COLOR', 'Set pin name color') do |color|
-        colors['ColorPinNameEx'] = color
+        newcolors['ColorPinNameEx'] = color
     end
 
     opts.on('-f', '--fieldcolor COLOR', 'Set field color') do |color|
-        colors['ColorFieldEx'] = color
+        newcolors['ColorFieldEx'] = color
     end
 
     opts.on('-r', '--refcolor COLOR', 'Set reference color') do |color|
-        colors['ColorReferenceEx'] = color
+        newcolors['ColorReferenceEx'] = color
     end
 
     opts.on('-v', '--valuecolor COLOR', 'Set value color') do |color|
-        colors['ColorValueEx'] = color
+        newcolors['ColorValueEx'] = color
     end
 
     opts.on('-t', '--notecolor COLOR', 'Set note color') do |color|
-        colors['ColorNoteEx'] = color
+        newcolors['ColorNoteEx'] = color
     end
 
     opts.on('-d', '--bodycolor COLOR', 'Set body color') do |color|
-        colors['ColorBodyEx'] = color
+        newcolors['ColorBodyEx'] = color
     end
 
     opts.on('-y', '--bodybgcolor COLOR', 'Set body background color') do |color|
-        colors['ColorBodyBgEx'] = color
+        newcolors['ColorBodyBgEx'] = color
     end
 
     opts.on('-e', '--netnamecolor COLOR', 'Set net name color') do |color|
-        colors['ColorNetNameEx'] = color
+        newcolors['ColorNetNameEx'] = color
     end
 
     opts.on('-i', '--pincolor COLOR', 'Set pin color') do |color|
-        colors['ColorPinEx'] = color
+        newcolors['ColorPinEx'] = color
     end
 
     opts.on('-s', '--sheetcolor COLOR', 'Set sheet color') do |color|
-        colors['ColorSheetEx'] = color
+        newcolors['ColorSheetEx'] = color
     end
 
     opts.on('-x', '--sheetfilenamecolor COLOR', 'Set sheet file name color') do |color|
-        colors['ColorSheetFileNameEx'] = color
+        newcolors['ColorSheetFileNameEx'] = color
     end
 
     opts.on('-u', '--sheetnamecolor COLOR', 'Set sheet name color') do |color|
-        colors['ColorSheetNameEx'] = color
+        newcolors['ColorSheetNameEx'] = color
     end
 
     opts.on('-a', '--sheetlabelcolor COLOR', 'Set sheet label color') do |color|
-        colors['ColorSheetLabelEx'] = color
+        newcolors['ColorSheetLabelEx'] = color
     end
 
     opts.on('-q', '--noconnectcolor COLOR', 'Set no connection mark color') do |color|
-        colors['ColorNoConnectEx'] = color
+        newcolors['ColorNoConnectEx'] = color
     end
 
-    opts.on(nil, '--ercwcolor COLOR', 'Set ERC warning color') do |color|
-        colors['ColorErcWEx'] = color
+    opts.on('--ercwcolor COLOR', 'Set ERC warning color') do |color|
+        newcolors['ColorErcWEx'] = color
     end
 
-    opts.on(nil, '--ercecolor COLOR', 'Set ERC error color') do |color|
-        colors['ColorErcEEx'] = color
+    opts.on('--ercecolor COLOR', 'Set ERC error color') do |color|
+        newcolors['ColorErcEEx'] = color
     end
 
-    opts.on(nil, '--gridcolor COLOR', 'Set grid color') do |color|
-        colors['ColorGridEx'] = color
+    opts.on('--gridcolor COLOR', 'Set grid color') do |color|
+        newcolors['ColorGridEx'] = color
     end
 
     opts.on('-z', '--titlecolor COLOR', 'Set schematic title color') do |color|
-        options['TitleColor'] = color
+        newcolors['ColorTitle'] = color
     end
 
     opts.on('-?', '--help', 'Help screen') do
@@ -218,10 +231,49 @@ end
 
 optparse.parse!
 
-eeschemacolors = parseeeschemaconfig(options['ConfigFile'])
+eeschemacolors = parseeeschemaconfig(options['EeschemaConfigFile'])
+eeschemacolors['ColorTitle'] = 'Red 2'
+
+# Check each color for validity and unify their syntax
+newcolors.each do |key, color|
+    newcolors[key] = checkcolor(color)
+    if newcolors[key] == nil
+        puts 'Error: "' + color + '" is not a valid color'
+        exit 1
+    end
+end
 
 if options['ShowDoubles'] == true
     showdoubles(eeschemacolors)
+end
+
+if options['NewColorSchemeFile'] != nil
+    schemefile = File.open(options['NewColorSchemeFile'], 'w')
+    schemefile.puts(YAML::dump(newcolors))
+    schemefile.close()
+end
+
+if options['ColorSchemeFile'] != nil
+    newcolors = YAML.load_file(options['ColorSchemeFile'])
+end
+
+# Create a hash with every text substitution to make
+subs = Hash.new
+newcolors.each do |colorname, colorvalue|
+    if eeschemacolors[colorname] == nil
+        puts 'Error: Color "' + colorname + '" not found in Eeschema config'
+        exit 1
+    end
+    if $colordefinitions[eeschemacolors[colorname]] == nil
+        puts 'Error: Unknown color: "' + eeschemacolors[colorname] + '"'
+        exit 1
+    end
+    eeschemacolor = $colordefinitions[eeschemacolors[colorname]] + ' setrgbcolor'
+    newcolor = hextops(colorvalue)
+    if subs[eeschemacolor] != nil and subs[eeschemacolor] != newcolor
+        puts 'Warning: Multiple different replacements for color "' + eeschemacolors[colorname] + '"'
+    end
+    subs[eeschemacolor] = newcolor
 end
 
 ARGV.each do |a|
@@ -242,19 +294,10 @@ ARGV.each do |a|
     tfile = File.open(tfilename, 'w')
 
     ifile.each do |line|
-        if options['TitleColor'] != nil
-            line.sub!('0.518 0 0 setrgbcolor', hextops(options['TitleColor']))
-        end
-        colors.each do |colorname, colorvalue|
-            if eeschemacolors[colorname] == nil
-                puts colorname + ' not found in Eeschema config'
-                exit 1
+        if line['setrgbcolor']
+            subs.each do |eeschemacolor, newcolor|
+                line.sub!(eeschemacolor, newcolor)
             end
-            if $colordefinitions[eeschemacolors[colorname]] == nil
-                puts 'Unknown color: ' + eeschemacolors[colorname]
-                exit 1
-            end
-            line.sub!($colordefinitions[eeschemacolors[colorname]] + ' setrgbcolor', hextops(colorvalue))
         end
         tfile.puts(line)
     end

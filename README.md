@@ -14,6 +14,8 @@ By default *kpsced* overwrites the specified postscript file, unless an output f
 
 For the full list of color options, refer to `kpsced --help`. The colors are specified in the standard 6-character hexadecimal RGB format (like `#ffffff`). For convenience, the `#` can be omitted.
 
+*kpsced* can generate a color scheme file from the color settings given via command line arguments with the `--generate` flag. This file can be used with the `-m` flag to specify all color replacements at once.
+
 ## Limitations
 
 *kpsced* is used as an postprocessor for Eeschema-generated postscript files. Because of this, there is one main limitation: *kpsced* cannot assign different colors to elements which have the same color settings in Eeschema. If you want a really colorful output, you will have to edit your Eeschema settings so all elements are colored differently by default. Keep in mind that Eeschema uses the color *Red 2* for the schematic title block, which cannot be changed in the settings. Use the `-j` flag to check whether some colors are used repeatedly.
