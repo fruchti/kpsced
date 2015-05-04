@@ -9,7 +9,7 @@ require 'yaml'
 #  Default path to the Eeschema configuration file
 $eeschemaconfigpath = "#{Dir.home}/.config/kicad/eeschema"
 
-# Thenewcolors used by Eeschema
+# The colors used by Eeschema
 $colordefinitions = {
     'Black' => '0 0 0',
     'Gray 1' => '0.282 0.282 0.282',
@@ -76,7 +76,7 @@ def parseeeschemaconfig(path)
     return config
 end
 
-# Looks fornewcolors appearing more than one time
+# Looks for colors appearing more than one time
 def showdoubles(config)
     # Group color settings by color
     grouped = config.keys.group_by { |key| config[key] }
@@ -119,7 +119,7 @@ optparse = OptionParser.new do |opts|
         options['NewColorSchemeFile'] = file
     end
 
-    opts.on('-j', '--showdoubles', 'Shownewcolors which cannot be set independently') do
+    opts.on('-j', '--showdoubles', 'Show colors which cannot be set independently') do
         options['ShowDoubles'] = true
     end
 
@@ -249,6 +249,11 @@ end
 
 if options['NewColorSchemeFile'] != nil
     schemefile = File.open(options['NewColorSchemeFile'], 'w')
+    eeschemacolors.each do |color|
+        if newcolors[color[0]] == nil
+            newcolors[color[0]] = nil
+        end
+    end
     schemefile.puts(YAML::dump(newcolors))
     schemefile.close()
 end
@@ -260,20 +265,22 @@ end
 # Create a hash with every text substitution to make
 subs = Hash.new
 newcolors.each do |colorname, colorvalue|
-    if eeschemacolors[colorname] == nil
-        puts 'Error: Color "' + colorname + '" not found in Eeschema config'
-        exit 1
+    if colorvalue != nil
+        if eeschemacolors[colorname] == nil
+            puts 'Error: Color "' + colorname + '" not found in Eeschema config'
+            exit 1
+        end
+        if $colordefinitions[eeschemacolors[colorname]] == nil
+            puts 'Error: Unknown color: "' + eeschemacolors[colorname] + '"'
+            exit 1
+        end
+        eeschemacolor = $colordefinitions[eeschemacolors[colorname]] + ' setrgbcolor'
+        newcolor = hextops(colorvalue)
+        if subs[eeschemacolor] != nil and subs[eeschemacolor] != newcolor
+            puts 'Warning: Multiple different replacements for color "' + eeschemacolors[colorname] + '"'
+        end
+        subs[eeschemacolor] = newcolor
     end
-    if $colordefinitions[eeschemacolors[colorname]] == nil
-        puts 'Error: Unknown color: "' + eeschemacolors[colorname] + '"'
-        exit 1
-    end
-    eeschemacolor = $colordefinitions[eeschemacolors[colorname]] + ' setrgbcolor'
-    newcolor = hextops(colorvalue)
-    if subs[eeschemacolor] != nil and subs[eeschemacolor] != newcolor
-        puts 'Warning: Multiple different replacements for color "' + eeschemacolors[colorname] + '"'
-    end
-    subs[eeschemacolor] = newcolor
 end
 
 ARGV.each do |a|
